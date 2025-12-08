@@ -14,14 +14,20 @@ class RCIApp:
         self.master = master
         master.title("IRS Monitor")
         self.use_dummy = True
-        self.data_frame = pd.DataFrame(columns=['Time', 'Temperature', 'Pressure', 'Mass Flow'])
-        self.fig, self.ax = plt.subplots()
-        self.line1, = self.ax.plot([], [], label = 'Temperature')
-        self.line2, = self.ax.plot([], [], label = 'Pressure')
-        self.line3, = self.ax.plot([], [], label = 'Mass Flow')
-        self.ax.legend()
-        self.ax.set_xlabel("Time(ms)")
-        self.ax.set_ylabel("Values(SI Units)")
+        self.data_frame = pd.DataFrame(columns=['Time', 'temp', 'press', 'mf'])
+        self.fig, (self.ax1, self.ax2, self.ax3) = plt.subplots(3, 1, figsize=(6, 8))
+        self.line1, = self.ax1.plot([], [], label = 'Temperature')
+        self.line2, = self.ax2.plot([], [], label = 'Pressure')
+        self.line3, = self.ax3.plot([], [], label = 'Mass Flow')
+        self.ax1.legend()
+        self.ax2.legend()
+        self.ax3.legend()
+        self.ax1.set_xlabel("Time(ms)")
+        self.ax1.set_ylabel("Temperature (K)")
+        self.ax2.set_xlabel("Time(ms)")
+        self.ax2.set_ylabel("Pressure (bar)")
+        self.ax3.set_xlabel("Time(ms)")
+        self.ax3.set_ylabel("Mass Flow (nlpm)")
 
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.master)
         self.canvas_widget = self.canvas.get_tk_widget()
@@ -48,11 +54,10 @@ class RCIApp:
         self.is_reading = False
 
     def read_and_update(self):
-        ser_port = serial.Serial(port = 'COM3', baudrate=115200, timeout=1)
-        print(f"Starting to read data from {ser_port.port} at the rate of {ser_port.baudrate}bps")
         if not self.use_dummy:
             try:
                 ser_port = serial.Serial(port='COM3', baudrate=115200, timeout=1)
+                print(f"Starting to read data from {ser_port.port} at the rate of {ser_port.baudrate}bps")
                 print(f"Can access {ser_port.port}")
             except:
                 print("Serial connection failed")
@@ -70,9 +75,9 @@ class RCIApp:
                     line = ser_port.readline().decode('utf-8').strip()
                     if line:
                         t, temp, press, mf = line.split(",")
-                        row = {'Time' : float(t), 'temp' : float(temp), 'press' : float(press), 'mf' : float(mf)}
+                        row = {'Time' : int(t), 'temp' : float(temp), 'press' : float(press), 'mf' : float(mf)}
                         self.data_frame = pd.concat([self.data_frame, pd.DataFrame([row])], ignore_index=True)
-            self.master.after(0, lambda t=temp, p=press, m=mf : self.live_label.config(text=f"Temperature : {t:.2f}K Pressure : {p:.2f}bar Mass Flow : {m:.2f}nlpm"))
+            self.master.after(0, lambda t=temp, p=press, m=mf : self.live_label.config(text=f"Temperature : {t}K Pressure : {p}bar Mass Flow : {m}nlpm"))
             time.sleep(0.1)
         
     def update_plot(self):
@@ -80,8 +85,12 @@ class RCIApp:
             self.line1.set_data(self.data_frame['Time'], self.data_frame['temp'])
             self.line2.set_data(self.data_frame['Time'], self.data_frame['press'])
             self.line3.set_data(self.data_frame['Time'], self.data_frame['mf'])
-            self.ax.relim()
-            self.ax.autoscale_view()
+            self.ax1.relim()
+            self.ax2.relim()
+            self.ax3.relim()
+            self.ax1.autoscale_view()
+            self.ax2.autoscale_view()
+            self.ax3.autoscale_view()
             self.canvas.draw()
         if self.is_reading:
             self.master.after(1000, self.update_plot)
